@@ -102,6 +102,49 @@ Adding a platform = one new file implementing `AdConnector` + registering it in 
 
 Stack: Next.js 15, TypeScript, Drizzle ORM (Postgres / PGlite), Zod.
 
+## Deploying (CI/CD)
+
+`.github/workflows/ci-cd.yml` runs on every push and pull request:
+
+1. **CI** — install, type-check, tests, production build.
+2. **CD** — only when CI passes on `main`: GitHub connects to the server over SSH and runs `scripts/deploy.sh <commit>`.
+
+`deploy.sh` builds each commit in its own folder (`/var/www/scm/releases/<sha>`) while the old version keeps serving,
+then switches over and reloads pm2. If the build fails, the live site is untouched; if the new version fails its
+health check, it rolls back to the last good release automatically. The last 5 releases are kept.
+
+### One-time server setup (Ubuntu VPS)
+
+1. Point your domain (e.g. `ads.shortcutvid.in`) to the server's IP.
+2. On the server:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/premprakaash/ShortCutMarketing/main/scripts/server-setup.sh -o setup.sh
+   bash setup.sh ads.shortcutvid.in
+   ```
+   This installs Node, Postgres, Nginx, HTTPS and pm2, creates the database, and writes
+   `/var/www/scm/shared/.env.local` with generated secrets.
+3. Add `META_APP_ID` and `META_APP_SECRET` to `/var/www/scm/shared/.env.local`.
+4. First deploy by hand: `bash /var/www/scm/repo/scripts/deploy.sh`
+
+### Connect GitHub to the server
+
+1. Create a deploy key on your computer: `ssh-keygen -t ed25519 -f scm_deploy -N ""`
+2. On the server, add `scm_deploy.pub` to `~/.ssh/authorized_keys` of the user that ran setup.
+3. GitHub repo → **Settings → Secrets and variables → Actions** → add:
+
+| Secret | Value |
+|---|---|
+| `SSH_HOST` | Server IP or hostname |
+| `SSH_USER` | The Linux user that ran setup |
+| `SSH_KEY` | Contents of the private key `scm_deploy` |
+| `SSH_PORT` | Optional, default `22` |
+| `APP_DIR` | Optional, default `/var/www/scm` |
+
+4. (Optional) **Settings → Environments → production** → add yourself as a required reviewer to approve each deploy.
+
+After that: merge or push to `main` → tests run → the server updates itself. Watch progress in the **Actions** tab;
+on the server, `pm2 logs scm` shows app logs.
+
 ## Tests
 
 ```bash
