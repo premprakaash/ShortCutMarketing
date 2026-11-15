@@ -47,7 +47,7 @@ function connector(routes: Record<string, (p: Record<string, string>) => unknown
     apiVersion: "v25.0",
     fetch: g.fetchImpl,
     sleep: async () => {},
-    videoPollMs: 1,
+    mediaPollMs: 1,
   });
   return { c, calls: g.calls };
 }

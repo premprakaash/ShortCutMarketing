@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { AiError } from "./ai/claude";
+import { VideoGenError } from "./ai/video";
 import { ConnectorError } from "./connectors";
 
 /** Turn thrown errors into clean JSON responses. */
@@ -10,7 +12,7 @@ export function errorResponse(err: unknown) {
       { status: 400 },
     );
   }
-  if (err instanceof ConnectorError) {
+  if (err instanceof ConnectorError || err instanceof AiError || err instanceof VideoGenError) {
     return NextResponse.json({ error: err.message }, { status: 422 });
   }
   console.error(err);

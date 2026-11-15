@@ -1,6 +1,8 @@
 import { createHmac } from "node:crypto";
 import {
   ConnectorError,
+  deps,
+  pollUntil,
   type AccountContext,
   type AdAccount,
   type AdConnector,
@@ -8,6 +10,7 @@ import {
   type Insights,
   type LaunchResult,
   type Objective,
+  type ConnectorDeps,
   type Page,
   type TokenResult,
 } from "./types";
@@ -64,15 +67,10 @@ export function buildTargeting(spec: CampaignSpec) {
   return targeting;
 }
 
-export interface MetaConfig {
+export interface MetaConfig extends ConnectorDeps {
   appId: string;
   appSecret: string;
   apiVersion: string;
-  fetch?: typeof fetch;
-  sleep?: (ms: number) => Promise<void>;
-  /** How long to wait for Meta to finish processing an uploaded video. */
-  videoTimeoutMs?: number;
-  videoPollMs?: number;
 }
 
 type Params = Record<string, unknown>;
@@ -89,8 +87,8 @@ export class MetaApiError extends ConnectorError {
 }
 
 export function createMetaConnector(config: MetaConfig): AdConnector {
-  const doFetch = config.fetch ?? fetch;
-  const sleep = config.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const d = deps(config);
+  const doFetch = d.fetch;
   const base = `https://graph.facebook.com/${config.apiVersion}`;
 
   const proof = (token: string) => createHmac("sha256", config.appSecret).update(token).digest("hex");
@@ -132,19 +130,16 @@ export function createMetaConnector(config: MetaConfig): AdConnector {
   }
 
   async function waitForVideo(token: string, videoId: string): Promise<void> {
-    const timeout = config.videoTimeoutMs ?? 120_000;
-    const every = config.videoPollMs ?? 3_000;
-    const started = Date.now();
-    for (;;) {
-      const v = await graph<{ status?: { video_status?: string } }>("GET", `/${videoId}`, token, { fields: "status" });
-      const s = v.status?.video_status;
-      if (s === "ready") return;
-      if (s === "error") throw new MetaApiError("Meta could not process this video. Check the format (MP4/MOV) and size.");
-      if (Date.now() - started > timeout) {
-        throw new MetaApiError("Timed out waiting for Meta to process the video. Try again in a minute.");
-      }
-      await sleep(every);
-    }
+    await pollUntil(
+      d,
+      async () => {
+        const v = await graph<{ status?: { video_status?: string } }>("GET", `/${videoId}`, token, { fields: "status" });
+        const s = v.status?.video_status;
+        if (s === "error") throw new MetaApiError("Meta could not process this video. Check the format (MP4/MOV) and size.");
+        return s === "ready" ? true : undefined;
+      },
+      "Meta to process the video",
+    );
   }
 
   async function pickThumbnail(token: string, videoId: string): Promise<string> {
@@ -159,6 +154,7 @@ export function createMetaConnector(config: MetaConfig): AdConnector {
   return {
     platform: "meta",
     label: "Meta (Facebook & Instagram)",
+    pageLabel: "Facebook Page",
 
     getAuthUrl(state, redirectUri) {
       const p = new URLSearchParams({

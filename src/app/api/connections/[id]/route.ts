@@ -7,10 +7,11 @@ import { getUserId } from "@/lib/user";
 type Ctx = { params: Promise<{ id: string }> };
 
 /** Ad accounts and pages available on this connection. */
-export async function GET(_req: Request, { params }: Ctx) {
+export async function GET(req: Request, { params }: Ctx) {
   try {
     const { id } = await params;
-    return NextResponse.json(await connectionOptions(await getUserId(), id));
+    const adAccountId = new URL(req.url).searchParams.get("adAccountId") ?? undefined;
+    return NextResponse.json(await connectionOptions(await getUserId(), id, adAccountId));
   } catch (err) {
     return errorResponse(err);
   }

@@ -43,15 +43,33 @@ ENV_FILE="$APP_DIR/shared/.env.local"
 if [ ! -f "$ENV_FILE" ]; then
   cat > "$ENV_FILE" <<EOF
 APP_URL=https://$DOMAIN
-META_APP_ID=
-META_APP_SECRET=
-META_API_VERSION=v25.0
 TOKEN_ENCRYPTION_KEY=$(openssl rand -base64 32)
 DATABASE_URL=$( [ "$NEW_DB" = 1 ] && echo "postgres://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME" )
 SCM_API_KEY=$(openssl rand -hex 24)
+
+# AI
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-sonnet-5-5
+FAL_KEY=
+
+# Ad platforms (redirect URL on each: https://$DOMAIN/api/connect/<platform>/callback)
+META_APP_ID=
+META_APP_SECRET=
+META_API_VERSION=v25.0
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_ADS_DEVELOPER_TOKEN=
+GOOGLE_ADS_API_VERSION=v25
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=
+TIKTOK_APP_ID=
+TIKTOK_APP_SECRET=
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
+LINKEDIN_API_VERSION=202606
+PINTEREST_CLIENT_ID=
+PINTEREST_CLIENT_SECRET=
+SNAPCHAT_CLIENT_ID=
+SNAPCHAT_CLIENT_SECRET=
 EOF
   chmod 600 "$ENV_FILE"
 fi
@@ -86,7 +104,7 @@ sudo env PATH="$PATH" pm2 startup systemd -u "$USER" --hp "$HOME" >/dev/null
 cat <<EOF
 
 Done. Next steps:
-  1. Fill in META_APP_ID and META_APP_SECRET in $ENV_FILE
+  1. Fill in your AI and ad-platform keys in $ENV_FILE (see README)
   2. First deploy:  bash $APP_DIR/repo/scripts/deploy.sh
   3. Add the GitHub secrets listed in README (Deploying) so pushes to main deploy automatically.
 EOF
